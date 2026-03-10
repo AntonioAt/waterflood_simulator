@@ -8,7 +8,6 @@ Acts as the central router based on user selections from the CLI menu.
 import sys
 import warnings
 
-# Suppress runtime warnings from division by zero in numpy arrays
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 from cli_interface import main_menu
@@ -16,7 +15,6 @@ from simulator import WaterfloodSimulator
 from plotter import ResultsPlotter
 from report import print_report
 
-# Import the advanced modules
 from scenarios import build_default_scenarios, run_scenarios, plot_scenario_comparison
 from sensitivity import run_sensitivity, plot_sensitivity
 
@@ -24,12 +22,8 @@ from sensitivity import run_sensitivity, plot_sensitivity
 def main():
     """Main execution pipeline."""
     try:
-        # 1. Launch menu and get the routing action and configuration
         action, config = main_menu()
 
-        # ---------------------------------------------------------
-        # ROUTE A: Single Custom Simulation
-        # ---------------------------------------------------------
         if action == "single":
             print("\n" + "=" * 60)
             print("  STARTING CUSTOM WATERFLOOD SIMULATION")
@@ -45,9 +39,6 @@ def main():
             plotter.plot_diagnostics(save=True, filename="results_diagnostics.png")
             print("[SUCCESS] Plots saved as 'results_main.png' and 'results_diagnostics.png'.")
 
-        # ---------------------------------------------------------
-        # ROUTE B: Scenario Comparison
-        # ---------------------------------------------------------
         elif action == "scenario":
             print("\n" + "=" * 60)
             print("  RUNNING SCENARIO COMPARISON")
@@ -58,15 +49,12 @@ def main():
             plot_scenario_comparison(all_results, save=True, filename="results_comparison.png")
             print("\n[SUCCESS] Scenario comparison complete. Plot saved as 'results_comparison.png'.")
 
-        # ---------------------------------------------------------
-        # ROUTE C: Sensitivity Analysis
-        # ---------------------------------------------------------
         elif action == "sensitivity":
             print("\n" + "=" * 60)
-            print("  RUNNING PARAMETRIC SENSITIVITY ANALYSIS")
+            print("  RUNNING PARAMETRIC SENSITIVITY ANALYSIS (MIN/BASE/MAX)")
             print("=" * 60)
             
-            studies = run_sensitivity()
+            studies = run_sensitivity(base_config=config)
             plot_sensitivity(studies, save=True, filename="results_sensitivity.png")
             print("\n[SUCCESS] Sensitivity analysis complete. Plot saved as 'results_sensitivity.png'.")
 
