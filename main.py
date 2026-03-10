@@ -7,6 +7,7 @@ Acts as the central router based on user selections from the CLI menu.
 
 import sys
 import warnings
+import copy
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
@@ -24,32 +25,42 @@ def main():
     try:
         action, config = main_menu()
 
-        if action == "single":
+        # ---------------------------------------------------------
+        # ROUTE A: Single Custom Simulation
+        # ---------------------------------------------------------
+        if action in ["single", "all"]:
             print("\n" + "=" * 60)
             print("  STARTING CUSTOM WATERFLOOD SIMULATION")
             print("=" * 60)
             
-            sim = WaterfloodSimulator(config)
+            # Using deepcopy to ensure the base config remains untouched for subsequent steps
+            sim = WaterfloodSimulator(copy.deepcopy(config))
             res = sim.run(verbose=True)
             print_report(res)
             
-            print("\n[INFO] Generating plots...")
+            print("\n[INFO] Generating single simulation plots...")
             plotter = ResultsPlotter(res)
             plotter.plot_main(save=True, filename="results_main.png")
             plotter.plot_diagnostics(save=True, filename="results_diagnostics.png")
             print("[SUCCESS] Plots saved as 'results_main.png' and 'results_diagnostics.png'.")
 
-        elif action == "scenario":
+        # ---------------------------------------------------------
+        # ROUTE B: Scenario Comparison
+        # ---------------------------------------------------------
+        if action in ["scenario", "all"]:
             print("\n" + "=" * 60)
             print("  RUNNING SCENARIO COMPARISON")
             print("=" * 60)
             
-            scenarios = build_default_scenarios()
+            scenarios = build_default_scenarios(base_config=config)
             all_results = run_scenarios(scenarios)
             plot_scenario_comparison(all_results, save=True, filename="results_comparison.png")
             print("\n[SUCCESS] Scenario comparison complete. Plot saved as 'results_comparison.png'.")
 
-        elif action == "sensitivity":
+        # ---------------------------------------------------------
+        # ROUTE C: Sensitivity Analysis
+        # ---------------------------------------------------------
+        if action in ["sensitivity", "all"]:
             print("\n" + "=" * 60)
             print("  RUNNING PARAMETRIC SENSITIVITY ANALYSIS (MIN/BASE/MAX)")
             print("=" * 60)
@@ -57,6 +68,10 @@ def main():
             studies = run_sensitivity(base_config=config)
             plot_sensitivity(studies, save=True, filename="results_sensitivity.png")
             print("\n[SUCCESS] Sensitivity analysis complete. Plot saved as 'results_sensitivity.png'.")
+
+        print("\n" + "=" * 60)
+        print("  ALL REQUESTED OPERATIONS COMPLETED SUCCESSFULLY")
+        print("=" * 60 + "\n")
 
     except KeyboardInterrupt:
         print("\n\n[WARN] Simulation interrupted by user. Exiting safely...")
