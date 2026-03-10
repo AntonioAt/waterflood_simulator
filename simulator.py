@@ -136,12 +136,23 @@ class WaterfloodSimulator:
             hist["avg_Sw"].append(metrics["avg_Sw"])
             hist["recovery_factor"].append(rf)
 
-            # Snapshots
-            if snap_idx < len(snap_times) and sim_time >= snap_times[snap_idx]:
-                label = f"t = {snap_times[snap_idx]:.0f} d"
-                sat_snaps[label] = Sw.copy()
-                pres_snaps[label] = pressure.copy()
-                snap_idx += 1
+                    # ---- Snapshot schedule ----
+        # Calculate approximate time to inject 1 Pore Volume (PVI = 1.0)
+        time_1_pvi = total_pv_bbl / cfg.wells.q_inj
+        
+        # We want to capture the shock front before breakthrough (usually around 0.2 - 0.4 PVI)
+        # So we force snapshots at early times, and then spread the rest out.
+        early_snaps = np.linspace(0.1 * time_1_pvi, 0.5 * time_1_pvi, 4)
+        late_snaps = np.linspace(time_1_pvi, cfg.total_time, 4)
+        
+        # Combine and sort the snapshot times
+        snap_times = np.unique(np.concatenate((early_snaps, late_snaps)))
+        snap_times = snap_times[snap_times <= cfg.total_time]
+        
+        snap_idx = 0
+        sat_snaps = {}
+        pres_snaps = {}
+
 
             # Verbose progress
             if verbose:
