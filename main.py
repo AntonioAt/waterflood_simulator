@@ -2,14 +2,13 @@
 main.py
 -------
 Entry point for the waterflood reservoir simulator.
-Integrates the interactive CLI menu for dynamic parameter input and 
-orchestrates the simulation pipeline.
+Acts as the central router based on user selections from the CLI menu.
 """
 
 import sys
 import warnings
 
-# Suppress runtime warnings from division by zero in numpy arrays (handled internally)
+# Suppress runtime warnings from division by zero in numpy arrays
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 from cli_interface import main_menu
@@ -17,45 +16,65 @@ from simulator import WaterfloodSimulator
 from plotter import ResultsPlotter
 from report import print_report
 
+# Import the advanced modules
+from scenarios import build_default_scenarios, run_scenarios, plot_scenario_comparison
+from sensitivity import run_sensitivity, plot_sensitivity
+
+
 def main():
     """Main execution pipeline."""
     try:
-        # 1. Launch the interactive menu to construct the configuration
-        # This will block and wait for user input (CLI, JSON, or Excel)
-        config = main_menu()
+        # 1. Launch menu and get the routing action and configuration
+        action, config = main_menu()
 
-        print("\n" + "=" * 60)
-        print("  STARTING WATERFLOOD SIMULATION")
-        print("=" * 60)
+        # ---------------------------------------------------------
+        # ROUTE A: Single Custom Simulation
+        # ---------------------------------------------------------
+        if action == "single":
+            print("\n" + "=" * 60)
+            print("  STARTING CUSTOM WATERFLOOD SIMULATION")
+            print("=" * 60)
+            
+            sim = WaterfloodSimulator(config)
+            res = sim.run(verbose=True)
+            print_report(res)
+            
+            print("\n[INFO] Generating plots...")
+            plotter = ResultsPlotter(res)
+            plotter.plot_main(save=True, filename="results_main.png")
+            plotter.plot_diagnostics(save=True, filename="results_diagnostics.png")
+            print("[SUCCESS] Plots saved as 'results_main.png' and 'results_diagnostics.png'.")
 
-        # 2. Instantiate the simulator engine with the user's config
-        sim = WaterfloodSimulator(config)
-        
-        # 3. Execute the time-stepping loop
-        res = sim.run(verbose=True)
+        # ---------------------------------------------------------
+        # ROUTE B: Scenario Comparison
+        # ---------------------------------------------------------
+        elif action == "scenario":
+            print("\n" + "=" * 60)
+            print("  RUNNING SCENARIO COMPARISON")
+            print("=" * 60)
+            
+            scenarios = build_default_scenarios()
+            all_results = run_scenarios(scenarios)
+            plot_scenario_comparison(all_results, save=True, filename="results_comparison.png")
+            print("\n[SUCCESS] Scenario comparison complete. Plot saved as 'results_comparison.png'.")
 
-        # 4. Output the detailed text report
-        print_report(res)
-
-        # 5. Generate, save, and display visualizations
-        print("\n[INFO] Generating plots...")
-        plotter = ResultsPlotter(res)
-        
-        # Plot the main 4-panel figure
-        plotter.plot_main(save=True, filename="results_main.png")
-        
-        # Plot the extended diagnostics
-        plotter.plot_diagnostics(save=True, filename="results_diagnostics.png")
-
-        print("\n[SUCCESS] Simulation complete. Plots saved locally.")
+        # ---------------------------------------------------------
+        # ROUTE C: Sensitivity Analysis
+        # ---------------------------------------------------------
+        elif action == "sensitivity":
+            print("\n" + "=" * 60)
+            print("  RUNNING PARAMETRIC SENSITIVITY ANALYSIS")
+            print("=" * 60)
+            
+            studies = run_sensitivity()
+            plot_sensitivity(studies, save=True, filename="results_sensitivity.png")
+            print("\n[SUCCESS] Sensitivity analysis complete. Plot saved as 'results_sensitivity.png'.")
 
     except KeyboardInterrupt:
-        # Graceful exit if the user presses Ctrl+C
         print("\n\n[WARN] Simulation interrupted by user. Exiting safely...")
         sys.exit(1)
     except Exception as e:
-        # Catch-all for unexpected runtime failures to prevent messy tracebacks
-        print(f"\n[FATAL ERROR] An unexpected error occurred during execution: {e}")
+        print(f"\n[FATAL ERROR] An unexpected error occurred: {e}")
         sys.exit(1)
 
 
