@@ -113,6 +113,9 @@ def get_manual_config() -> SimulationConfig:
     try:
         # --- 1. Reservoir Geometry & Rock ---
         print("--- RESERVOIR GEOMETRY & ROCK PROPERTIES ---")
+        nx_in = input(f"Number of Grid Blocks (nx) [Default: {cfg.rock.nx}]: ").strip()
+        if nx_in: cfg.rock.nx = int(nx_in)
+        
         area_in = input(f"Cross-sectional Area (ft^2) [Default: {cfg.rock.area}]: ").strip()
         if area_in: cfg.rock.area = float(area_in)
         
