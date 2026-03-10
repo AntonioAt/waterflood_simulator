@@ -14,14 +14,17 @@ from config import SimulationConfig
 
 
 def generate_templates():
-    """Generates standard template files demonstrating how to override base parameters and sensitivity bounds."""
+    """Generates standard template files demonstrating how to override base parameters and bounds."""
     print("\n--- Generating Template Files ---")
     
     json_template = {
         "total_time": 1500.0,
         "rock": {"permeability": 150.0, "porosity": 0.22},
-        "wells": {"q_inj": 600.0, "mode": "rate"},
-        "bounds": {"q_inj_min_mult": 0.25, "q_inj_max_mult": 2.0} 
+        "bounds": {
+            "q_inj_min_mult": 0.25, 
+            "unfav_mu_o": 15.0,
+            "channel_high_mult": 10.0
+        } 
     }
     with open("example_input.json", "w") as f:
         json.dump(json_template, f, indent=4)
@@ -30,9 +33,9 @@ def generate_templates():
     excel_filename = 'example_full_deck.xlsx'
     with pd.ExcelWriter(excel_filename) as writer:
         df_global = pd.DataFrame({
-            'Group': ['wells', 'wells', 'total_time', 'rock', 'rock', 'bounds', 'bounds'],
-            'Parameter': ['q_inj', 'mode', 'value', 'nx', 'permeability', 'q_inj_min_mult', 'q_inj_max_mult'],
-            'Value': [500.0, 'rate', 2000.0, 100, 100.0, 0.25, 2.0]
+            'Group': ['wells', 'rock', 'bounds', 'bounds', 'bounds'],
+            'Parameter': ['q_inj', 'permeability', 'q_inj_min_mult', 'unfav_mu_o', 'channel_high_mult'],
+            'Value': [500.0, 100.0, 0.25, 12.0, 8.0]
         })
         df_global.to_excel(writer, sheet_name='Global_Params', index=False)
         
@@ -108,10 +111,10 @@ def load_excel_deck(filepath: str) -> SimulationConfig:
 
 
 def get_manual_config() -> SimulationConfig:
-    """Prompts the user for key simulation parameters and sensitivity bounds interactively."""
+    """Prompts the user for key simulation parameters and boundaries interactively."""
     cfg = SimulationConfig()
     print("\n" + "-" * 60)
-    print("  MANUAL PARAMETER INPUT (BASE CASE & SENSITIVITY BOUNDS)")
+    print("  MANUAL PARAMETER INPUT")
     print("-" * 60)
     print("Instruction: Press 'Enter' without typing to use the default value.\n")
 
@@ -121,35 +124,33 @@ def get_manual_config() -> SimulationConfig:
         perm_in = input(f"Rock Permeability (mD) [Default: {cfg.rock.permeability}]: ").strip()
         if perm_in: cfg.rock.permeability = float(perm_in)
 
-        poro_in = input(f"Rock Porosity (fraction) [Default: {cfg.rock.porosity}]: ").strip()
-        if poro_in: cfg.rock.porosity = float(poro_in)
-
-        q_inj_in = input(f"Water Injection Rate (bbl/day) [Default: {cfg.wells.q_inj}]: ").strip()
-        if q_inj_in: cfg.wells.q_inj = float(q_inj_in)
-
         time_in = input(f"Total Simulation Time (days) [Default: {cfg.total_time}]: ").strip()
         if time_in: cfg.total_time = float(time_in)
 
         # --- 2. Sensitivity Bounds ---
-        print("\n--- SENSITIVITY BOUNDS (MULTIPLIERS) ---")
-        print("Define how far the Min/Max scenarios deviate from your Base Case.")
-        
+        print("\n--- SENSITIVITY BOUNDS (MIN/MAX) ---")
         q_min = input(f"Min Injection Rate Multiplier [Default: {cfg.bounds.q_inj_min_mult}]: ").strip()
         if q_min: cfg.bounds.q_inj_min_mult = float(q_min)
         
         q_max = input(f"Max Injection Rate Multiplier [Default: {cfg.bounds.q_inj_max_mult}]: ").strip()
         if q_max: cfg.bounds.q_inj_max_mult = float(q_max)
 
-        mu_min = input(f"Min Viscosity Multiplier [Default: {cfg.bounds.mu_o_min_mult}]: ").strip()
-        if mu_min: cfg.bounds.mu_o_min_mult = float(mu_min)
+        # --- 3. Scenario Comparison Bounds ---
+        print("\n--- SCENARIO COMPARISON INPUTS ---")
+        fav_o = input(f"Favorable Scenario Oil Viscosity (cp) [Default: {cfg.bounds.fav_mu_o}]: ").strip()
+        if fav_o: cfg.bounds.fav_mu_o = float(fav_o)
+        
+        unfav_o = input(f"Unfavorable Scenario Oil Viscosity (cp) [Default: {cfg.bounds.unfav_mu_o}]: ").strip()
+        if unfav_o: cfg.bounds.unfav_mu_o = float(unfav_o)
 
-        mu_max = input(f"Max Viscosity Multiplier [Default: {cfg.bounds.mu_o_max_mult}]: ").strip()
-        if mu_max: cfg.bounds.mu_o_max_mult = float(mu_max)
+        ch_high = input(f"Channel Scenario High-Perm Multiplier [Default: {cfg.bounds.channel_high_mult}]: ").strip()
+        if ch_high: cfg.bounds.channel_high_mult = float(ch_high)
 
     except ValueError:
         print("\n[!] WARNING: Invalid numeric input detected. Using defaults for the remaining parameters.")
 
     return cfg
+
 
 def initialize_base_config() -> SimulationConfig:
     """Handles the first stage of CLI routing to establish the base configuration."""
