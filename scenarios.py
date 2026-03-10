@@ -2,7 +2,7 @@
 scenarios.py
 ------------
 Run and compare multiple named simulation scenarios.
-Pivots on the user-defined base configuration using deepcopy.
+Pivots on the user-defined base configuration and custom scenario bounds.
 """
 
 from typing import Dict
@@ -17,27 +17,34 @@ from rock_properties import channel_perm
 
 
 def build_default_scenarios(base_config: SimulationConfig) -> Dict[str, SimulationConfig]:
-    """Return a dictionary of comparison scenarios pivoted on the user base case."""
+    """Return a dictionary of comparison scenarios using custom bounds."""
     scenarios = {}
+    b = base_config.bounds
 
-    # Favorable mobility
+    # --- Favorable mobility ---
     cfg = copy.deepcopy(base_config)
-    cfg.fluid.mu_o = 0.5
-    cfg.fluid.mu_w = 0.5
-    scenarios["Favorable (M≈0.3)"] = cfg
+    cfg.fluid.mu_o = b.fav_mu_o
+    cfg.fluid.mu_w = b.fav_mu_w
+    M_fav = ((cfg.relperm.krw_max / cfg.fluid.mu_w) / 
+             (cfg.relperm.kro_max / cfg.fluid.mu_o))
+    scenarios[f"Favorable (M≈{M_fav:.1f})"] = cfg
 
-    # Unfavorable mobility
+    # --- Unfavorable mobility ---
     cfg = copy.deepcopy(base_config)
-    cfg.fluid.mu_o = 10.0
-    scenarios["Unfavorable (M≈6)"] = cfg
+    cfg.fluid.mu_o = b.unfav_mu_o
+    M_unfav = ((cfg.relperm.krw_max / cfg.fluid.mu_w) / 
+               (cfg.relperm.kro_max / cfg.fluid.mu_o))
+    scenarios[f"Unfavorable (M≈{M_unfav:.1f})"] = cfg
 
-    # Channel heterogeneity based on user's base permeability
+    # --- Channel heterogeneity ---
     cfg = copy.deepcopy(base_config)
     base_k = cfg.rock.permeability
-    cfg.rock.perm_array = channel_perm(cfg.rock.nx, base_k * 0.5, base_k * 8.0, 0.3, 0.7)
-    scenarios[f"Channel ({base_k * 0.5:.0f}/{base_k * 8.0:.0f} mD)"] = cfg
+    k_bg = base_k * b.channel_bg_mult
+    k_ch = base_k * b.channel_high_mult
+    cfg.rock.perm_array = channel_perm(cfg.rock.nx, k_bg, k_ch, 0.3, 0.7)
+    scenarios[f"Channel ({k_bg:.0f}/{k_ch:.0f} mD)"] = cfg
 
-    # User Base case
+    # --- User Base case ---
     scenarios["User Base Case"] = copy.deepcopy(base_config)
 
     return scenarios
