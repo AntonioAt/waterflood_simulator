@@ -2,143 +2,128 @@
 sensitivity.py
 --------------
 Automated parametric sensitivity analysis.
-Sweeps key parameters and generates comparison plots.
+Evaluates Min, Base, and Max scenarios pivoted on the user-defined base configuration.
 """
 
 from typing import Dict
+import copy
 import numpy as np
 import matplotlib.pyplot as plt
 
 from config import SimulationConfig
 from simulator import WaterfloodSimulator
 from results import SimulationResults
-from rock_properties import uniform_perm, random_perm, channel_perm, layered_perm
+from rock_properties import uniform_perm, random_perm, channel_perm
 
 
-def run_sensitivity(base_config: SimulationConfig = None,
-                    verbose: bool = False) -> Dict[str, Dict[str, SimulationResults]]:
+def run_sensitivity(base_config: SimulationConfig) -> Dict[str, Dict[str, SimulationResults]]:
     """
-    Run five parametric sweeps and return nested results dictionary.
-
-    Returns
-    -------
-    studies : dict
-        {study_name: {case_label: SimulationResults}}
+    Executes parametric sweeps evaluating Min, Base, and Max variations
+    relative to the provided base configuration.
     """
     studies = {}
 
-    # --- 1. Viscosity ratio ---
-    print("\n>>> Sweep: Viscosity Ratio <<<")
+    print("\n>>> Sweep: Viscosity Ratio (Min, Base, Max) <<<")
     results = {}
-    for mu_o in [0.5, 1.0, 2.0, 5.0, 10.0]:
-        cfg = SimulationConfig()
+    base_mu_o = base_config.fluid.mu_o
+    test_values = {"Min": base_mu_o * 0.5, "Base": base_mu_o, "Max": base_mu_o * 2.0}
+
+    for label, mu_o in test_values.items():
+        cfg = copy.deepcopy(base_config)
         cfg.fluid.mu_o = mu_o
-        M = ((cfg.relperm.krw_max / cfg.fluid.mu_w)
-             / (cfg.relperm.kro_max / mu_o))
-        label = f"μo={mu_o} (M={M:.2f})"
+        M = ((cfg.relperm.krw_max / cfg.fluid.mu_w) / (cfg.relperm.kro_max / mu_o))
+        full_label = f"{label} (M={M:.2f})"
         sim = WaterfloodSimulator(cfg)
-        results[label] = sim.run(verbose=False)
+        results[full_label] = sim.run(verbose=False)
     studies["Viscosity Ratio"] = results
 
-    # --- 2. Corey exponents ---
-    print(">>> Sweep: Corey Exponents <<<")
+    print(">>> Sweep: Injection Rate (Min, Base, Max) <<<")
     results = {}
-    for n in [1.5, 2.0, 3.0, 4.0]:
-        cfg = SimulationConfig()
-        cfg.relperm.nw = n
-        cfg.relperm.no = n
-        label = f"nw=no={n}"
-        sim = WaterfloodSimulator(cfg)
-        results[label] = sim.run(verbose=False)
-    studies["Corey Exponents"] = results
+    base_q = base_config.wells.q_inj
+    test_values = {"Min": base_q * 0.5, "Base": base_q, "Max": base_q * 1.5}
 
-    # --- 3. Injection rate ---
-    print(">>> Sweep: Injection Rate <<<")
-    results = {}
-    for q in [200, 500, 1000, 2000]:
-        cfg = SimulationConfig()
+    for label, q in test_values.items():
+        cfg = copy.deepcopy(base_config)
         cfg.wells.q_inj = q
-        label = f"q={q} bbl/d"
+        full_label = f"{label} ({q:.0f} bbl/d)"
         sim = WaterfloodSimulator(cfg)
-        results[label] = sim.run(verbose=False)
+        results[full_label] = sim.run(verbose=False)
     studies["Injection Rate"] = results
 
-    # --- 4. Heterogeneity ---
-    print(">>> Sweep: Heterogeneity <<<")
-    nx = 100
+    print(">>> Sweep: Corey Exponents (Min, Base, Max) <<<")
+    results = {}
+    base_n = base_config.relperm.nw
+    test_values = {"Min": max(1.0, base_n - 0.5), "Base": base_n, "Max": base_n + 1.0}
+
+    for label, n in test_values.items():
+        cfg = copy.deepcopy(base_config)
+        cfg.relperm.nw = n
+        cfg.relperm.no = n
+        full_label = f"{label} (n={n:.1f})"
+        sim = WaterfloodSimulator(cfg)
+        results[full_label] = sim.run(verbose=False)
+    studies["Corey Exponents"] = results
+
+    print(">>> Sweep: Heterogeneity (Min, Base, Max) <<<")
+    nx = base_config.rock.nx
+    base_perm = base_config.rock.permeability
     het_perms = {
-        "Uniform 100 mD": uniform_perm(nx, 100.0),
-        "Random σ=30": random_perm(nx, 100.0, 30.0),
-        "Random σ=80": random_perm(nx, 100.0, 80.0),
-        "Channel": channel_perm(nx, 50.0, 500.0),
-        "Layered": layered_perm(nx, [(0.3, 200), (0.4, 50), (0.3, 150)]),
+        "Base (Uniform)": uniform_perm(nx, base_perm),
+        "Min (Channel)": channel_perm(nx, base_perm * 0.5, base_perm * 5.0),
+        "Max (Random Variance)": random_perm(nx, base_perm, 50.0)
     }
     results = {}
-    for label, perm in het_perms.items():
-        cfg = SimulationConfig()
-        cfg.rock.perm_array = perm
+    for label, perm_array in het_perms.items():
+        cfg = copy.deepcopy(base_config)
+        cfg.rock.perm_array = perm_array
         sim = WaterfloodSimulator(cfg)
         results[label] = sim.run(verbose=False)
     studies["Heterogeneity"] = results
-
-    # --- 5. Endpoint krw ---
-    print(">>> Sweep: Endpoint krw <<<")
-    results = {}
-    for krw in [0.1, 0.2, 0.3, 0.5, 0.8]:
-        cfg = SimulationConfig()
-        cfg.relperm.krw_max = krw
-        label = f"krw_max={krw}"
-        sim = WaterfloodSimulator(cfg)
-        results[label] = sim.run(verbose=False)
-    studies["Endpoint krw"] = results
 
     return studies
 
 
 def plot_sensitivity(studies: Dict[str, Dict[str, SimulationResults]],
                      save: bool = True,
-                     filename: str = "waterflood_sensitivity.png"):
+                     filename: str = "results_sensitivity.png"):
     """Generate a multi-row comparison figure for all sensitivity studies."""
     n_studies = len(studies)
     fig, axes = plt.subplots(n_studies, 3, figsize=(18, 5 * n_studies))
     if n_studies == 1:
         axes = axes[np.newaxis, :]
 
-    fig.suptitle("Sensitivity Analysis", fontsize=16, fontweight="bold")
+    fig.suptitle("Parametric Sensitivity Analysis (Min/Base/Max)", fontsize=16, fontweight="bold")
 
     for row, (study_name, results_dict) in enumerate(studies.items()):
         colors = plt.cm.tab10(np.linspace(0, 1, len(results_dict)))
 
-        # Col 0: final saturation
         ax = axes[row, 0]
         for (label, res), c in zip(results_dict.items(), colors):
             final_Sw = list(res.saturation_snapshots.values())[-1]
             ax.plot(res.x, final_Sw, color=c, lw=1.5, label=label)
         ax.set_xlabel("Distance [ft]")
         ax.set_ylabel("Sw (final)")
-        ax.set_title(f"{study_name} — Saturation")
-        ax.legend(fontsize=6, loc="upper right")
+        ax.set_title(f"{study_name} - Saturation")
+        ax.legend(fontsize=8)
         ax.grid(True, alpha=0.3)
 
-        # Col 1: water cut
         ax = axes[row, 1]
         for (label, res), c in zip(results_dict.items(), colors):
-            ax.plot(res.times, res.water_cut * 100, color=c, lw=1.3, label=label)
+            ax.plot(res.times, res.water_cut * 100, color=c, lw=1.5, label=label)
         ax.set_xlabel("Time [days]")
         ax.set_ylabel("Water Cut [%]")
-        ax.set_title(f"{study_name} — Water Cut")
+        ax.set_title(f"{study_name} - Water Cut")
         ax.set_ylim(0, 105)
-        ax.legend(fontsize=6)
+        ax.legend(fontsize=8)
         ax.grid(True, alpha=0.3)
 
-        # Col 2: recovery factor
         ax = axes[row, 2]
         for (label, res), c in zip(results_dict.items(), colors):
-            ax.plot(res.times, res.recovery_factor, color=c, lw=1.3, label=label)
+            ax.plot(res.times, res.recovery_factor, color=c, lw=1.5, label=label)
         ax.set_xlabel("Time [days]")
         ax.set_ylabel("Recovery Factor [%]")
-        ax.set_title(f"{study_name} — Recovery")
-        ax.legend(fontsize=6)
+        ax.set_title(f"{study_name} - Recovery")
+        ax.legend(fontsize=8)
         ax.grid(True, alpha=0.3)
 
     plt.tight_layout(rect=[0, 0, 1, 0.97])
