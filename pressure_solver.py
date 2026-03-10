@@ -1,12 +1,12 @@
 """
 pressure_solver.py
-==================
-Simple IMPES-style pressure equation for incompressible 2-phase flow.
-Attaches to main via: from pressure_solver import PressureSolver
+------------------
+IMPES-style pressure solver for incompressible two-phase flow.
+Uses a tridiagonal system (Thomas algorithm) with well source terms.
 """
 
-import numpy as np
 from typing import Tuple
+import numpy as np
 
 from config import SimulationConfig
 from grid import Grid
@@ -14,37 +14,46 @@ from grid import Grid
 
 class PressureSolver:
     """
-    Solves:  T_{i-1/2}(p_{i-1}-p_i) + T_{i+1/2}(p_{i+1}-p_i) + Q_i = 0
-    with transmissibilities T = 1.127e-3 * K_face * A * lam_t_face / dx
+    Solves the pressure equation:
+        T_{i-1/2}(p_{i-1} - p_i) + T_{i+1/2}(p_{i+1} - p_i) + Q_i = 0
+
+    Transmissibility: T = 1.127e-3 * K_face * A * lam_t_face / dx
     """
+
+    DARCY_FACTOR = 1.127e-3   # unit conversion for Darcy's law
 
     def __init__(self, grid: Grid, config: SimulationConfig):
         self.grid = grid
         self.cfg = config
-        self.darcy_factor = 1.127e-3
 
     def solve(self, Sw: np.ndarray,
               lam_t: np.ndarray) -> Tuple[np.ndarray, float]:
         """
-        Solve pressure and return (pressure_array, total_injection_rate).
+        Solve for pressure and injection rate.
+
+        Returns
+        -------
+        pressure : np.ndarray of shape (nx,)
+        q_inj : float
+            Total injection rate [bbl/day].
         """
         nx = self.grid.nx
         dx = self.grid.dx
         A = self.grid.area
+        K = self.grid.perm
         wells = self.cfg.wells
 
-        # Face transmissibilities (internal)
+        # Face transmissibilities
         K_f = self.grid.face_perm()
         lam_t_f = 0.5 * (lam_t[:-1] + lam_t[1:])
-        T_f = self.darcy_factor * K_f * A * lam_t_f / dx
+        T_f = self.DARCY_FACTOR * K_f * A * lam_t_f / dx
 
-        # Build tridiagonal system  Ap = b
+        # Tridiagonal coefficients
         diag = np.zeros(nx)
         upper = np.zeros(nx - 1)
         lower = np.zeros(nx - 1)
         rhs = np.zeros(nx)
 
-        # Internal faces
         for i in range(nx - 1):
             upper[i] = -T_f[i]
             lower[i] = -T_f[i]
@@ -61,16 +70,16 @@ class PressureSolver:
         diag[-1] += PI_prod
         rhs[-1] += PI_prod * wells.bhp_prod
 
-        # Solve tridiagonal system
-        pressure = self._solve_tridiag(lower, diag, upper, rhs)
-
-        # Compute injection rate
+        # Solve
+        pressure = self._thomas(lower, diag, upper, rhs)
         q_inj = PI_inj * (wells.bhp_inj - pressure[0])
-        return pressure, q_inj
+
+        return pressure, max(q_inj, 0.0)
 
     @staticmethod
-    def _solve_tridiag(a, b, c, d):
-        """Thomas algorithm for tridiagonal system."""
+    def _thomas(a: np.ndarray, b: np.ndarray,
+                c: np.ndarray, d: np.ndarray) -> np.ndarray:
+        """Thomas algorithm for tridiagonal linear system."""
         n = len(d)
         c_ = np.zeros(n - 1)
         d_ = np.zeros(n)
@@ -90,4 +99,5 @@ class PressureSolver:
         x[-1] = d_[-1]
         for i in range(n - 2, -1, -1):
             x[i] = d_[i] - c_[i] * x[i + 1]
+
         return x
