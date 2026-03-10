@@ -108,14 +108,16 @@ def load_excel_deck(filepath: str) -> SimulationConfig:
 
 
 def get_manual_config() -> SimulationConfig:
-    """Prompts the user for key simulation parameters interactively."""
+    """Prompts the user for key simulation parameters and sensitivity bounds interactively."""
     cfg = SimulationConfig()
-    print("\n" + "-" * 40)
-    print("  MANUAL PARAMETER INPUT")
-    print("-" * 40)
+    print("\n" + "-" * 60)
+    print("  MANUAL PARAMETER INPUT (BASE CASE & SENSITIVITY BOUNDS)")
+    print("-" * 60)
     print("Instruction: Press 'Enter' without typing to use the default value.\n")
 
     try:
+        # --- 1. Base Parameters ---
+        print("--- BASE CASE PARAMETERS ---")
         perm_in = input(f"Rock Permeability (mD) [Default: {cfg.rock.permeability}]: ").strip()
         if perm_in: cfg.rock.permeability = float(perm_in)
 
@@ -128,11 +130,26 @@ def get_manual_config() -> SimulationConfig:
         time_in = input(f"Total Simulation Time (days) [Default: {cfg.total_time}]: ").strip()
         if time_in: cfg.total_time = float(time_in)
 
+        # --- 2. Sensitivity Bounds ---
+        print("\n--- SENSITIVITY BOUNDS (MULTIPLIERS) ---")
+        print("Define how far the Min/Max scenarios deviate from your Base Case.")
+        
+        q_min = input(f"Min Injection Rate Multiplier [Default: {cfg.bounds.q_inj_min_mult}]: ").strip()
+        if q_min: cfg.bounds.q_inj_min_mult = float(q_min)
+        
+        q_max = input(f"Max Injection Rate Multiplier [Default: {cfg.bounds.q_inj_max_mult}]: ").strip()
+        if q_max: cfg.bounds.q_inj_max_mult = float(q_max)
+
+        mu_min = input(f"Min Viscosity Multiplier [Default: {cfg.bounds.mu_o_min_mult}]: ").strip()
+        if mu_min: cfg.bounds.mu_o_min_mult = float(mu_min)
+
+        mu_max = input(f"Max Viscosity Multiplier [Default: {cfg.bounds.mu_o_max_mult}]: ").strip()
+        if mu_max: cfg.bounds.mu_o_max_mult = float(mu_max)
+
     except ValueError:
-        print("\n[!] WARNING: Invalid numeric input detected. Using defaults for remaining.")
+        print("\n[!] WARNING: Invalid numeric input detected. Using defaults for the remaining parameters.")
 
     return cfg
-
 
 def initialize_base_config() -> SimulationConfig:
     """Handles the first stage of CLI routing to establish the base configuration."""
