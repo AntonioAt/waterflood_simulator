@@ -2,9 +2,11 @@
 scenarios.py
 ------------
 Run and compare multiple named simulation scenarios.
+Pivots on the user-defined base configuration using deepcopy.
 """
 
 from typing import Dict
+import copy
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -14,28 +16,29 @@ from results import SimulationResults
 from rock_properties import channel_perm
 
 
-def build_default_scenarios() -> Dict[str, SimulationConfig]:
-    """Return a dictionary of pre-built comparison scenarios."""
+def build_default_scenarios(base_config: SimulationConfig) -> Dict[str, SimulationConfig]:
+    """Return a dictionary of comparison scenarios pivoted on the user base case."""
     scenarios = {}
 
     # Favorable mobility
-    cfg = SimulationConfig()
+    cfg = copy.deepcopy(base_config)
     cfg.fluid.mu_o = 0.5
     cfg.fluid.mu_w = 0.5
     scenarios["Favorable (M≈0.3)"] = cfg
 
     # Unfavorable mobility
-    cfg = SimulationConfig()
+    cfg = copy.deepcopy(base_config)
     cfg.fluid.mu_o = 10.0
     scenarios["Unfavorable (M≈6)"] = cfg
 
-    # Channel heterogeneity
-    cfg = SimulationConfig()
-    cfg.rock.perm_array = channel_perm(100, 50, 800, 0.3, 0.7)
-    scenarios["Channel (50/800 mD)"] = cfg
+    # Channel heterogeneity based on user's base permeability
+    cfg = copy.deepcopy(base_config)
+    base_k = cfg.rock.permeability
+    cfg.rock.perm_array = channel_perm(cfg.rock.nx, base_k * 0.5, base_k * 8.0, 0.3, 0.7)
+    scenarios[f"Channel ({base_k * 0.5:.0f}/{base_k * 8.0:.0f} mD)"] = cfg
 
-    # Base case
-    scenarios["Base Case"] = SimulationConfig()
+    # User Base case
+    scenarios["User Base Case"] = copy.deepcopy(base_config)
 
     return scenarios
 
@@ -59,7 +62,7 @@ def run_scenarios(
 def plot_scenario_comparison(
     all_results: Dict[str, SimulationResults],
     save: bool = True,
-    filename: str = "waterflood_comparison.png",
+    filename: str = "results_comparison.png",
 ):
     """Overlay comparison of multiple scenario results."""
     fig, axes = plt.subplots(2, 2, figsize=(15, 11))
