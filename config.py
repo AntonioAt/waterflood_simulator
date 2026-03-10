@@ -14,7 +14,6 @@ import json
 
 @dataclass
 class RockProperties:
-    """Rock and formation geometry properties."""
     nx: int = 100
     length: float = 1000.0
     area: float = 5000.0
@@ -23,10 +22,8 @@ class RockProperties:
     compressibility: float = 1e-6
     perm_array: Optional[np.ndarray] = None
 
-
 @dataclass
 class FluidProperties:
-    """Oil and water PVT properties."""
     mu_w: float = 0.5
     mu_o: float = 2.0
     Bw: float = 1.02
@@ -36,10 +33,8 @@ class FluidProperties:
     cw: float = 3e-6
     co: float = 10e-6
 
-
 @dataclass
 class RelPermParams:
-    """Corey relative-permeability parameters."""
     Swc: float = 0.20
     Sor: float = 0.20
     krw_max: float = 0.30
@@ -48,26 +43,20 @@ class RelPermParams:
     no: float = 2.0
     csv_filepath: Optional[str] = None
 
-
 @dataclass
 class CapillaryPressureParams:
-    """Brooks-Corey capillary pressure model parameters."""
     enabled: bool = False
     Pc_entry: float = 5.0
     lam: float = 2.0
     Pc_max: float = 50.0
 
-
 @dataclass
 class GravityParams:
-    """Gravity segregation parameters."""
     enabled: bool = False
     dip_angle: float = 0.0
 
-
 @dataclass
 class NumericalParams:
-    """Numerical solver controls."""
     dt_init: float = 0.5
     dt_max: float = 5.0
     dt_min: float = 0.001
@@ -75,10 +64,8 @@ class NumericalParams:
     max_dSw_per_step: float = 0.05
     scheme: str = "upwind"
 
-
 @dataclass
 class WellControls:
-    """Injection and production well settings."""
     mode: str = "rate"
     q_inj: float = 500.0
     q_prod: float = 500.0
@@ -88,21 +75,26 @@ class WellControls:
     PI_prod: float = 10.0
     p_init: float = 3000.0
 
-
 @dataclass
 class SensitivityBounds:
-    """Multipliers and offsets defining the Min/Max scenario envelopes."""
+    """Stores all user-defined boundary conditions for advanced analyses."""
+    # Sensitivity Min/Max Limits
     mu_o_min_mult: float = 0.5
     mu_o_max_mult: float = 2.0
     q_inj_min_mult: float = 0.5
     q_inj_max_mult: float = 1.5
     corey_min_offset: float = -0.5
     corey_max_offset: float = 1.0
-
+    
+    # Scenario Comparison Override Values
+    fav_mu_o: float = 0.5             # Oil viscosity for Favorable case
+    fav_mu_w: float = 0.5             # Water viscosity for Favorable case
+    unfav_mu_o: float = 10.0          # Oil viscosity for Unfavorable case
+    channel_bg_mult: float = 0.5      # Background perm multiplier for Channel
+    channel_high_mult: float = 8.0    # Streak perm multiplier for Channel
 
 @dataclass
 class SimulationConfig:
-    """Top-level container aggregating all sub-configurations."""
     rock: RockProperties = field(default_factory=RockProperties)
     fluid: FluidProperties = field(default_factory=FluidProperties)
     relperm: RelPermParams = field(default_factory=RelPermParams)
@@ -116,7 +108,6 @@ class SimulationConfig:
 
     @classmethod
     def from_json(cls, filepath: str):
-        """Instantiates the configuration from an external JSON file."""
         with open(filepath, 'r') as f:
             data = json.load(f)
             
