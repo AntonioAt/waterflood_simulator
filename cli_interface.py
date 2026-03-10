@@ -2,14 +2,14 @@
 cli_interface.py
 ----------------
 Command-Line Interface for the Waterflood Simulator.
-Handles interactive user inputs, template generation, and execution routing.
+Initializes the base configuration and routes the execution pipeline.
 """
 
 import os
 import sys
 import pandas as pd
 import json
-from typing import Tuple, Optional
+from typing import Tuple
 from config import SimulationConfig
 
 
@@ -17,7 +17,6 @@ def generate_templates():
     """Generates standard template files for user input."""
     print("\n--- Generating Template Files ---")
     
-    # 1. JSON Template
     json_template = {
         "total_time": 1500.0,
         "rock": {"permeability": 150.0, "porosity": 0.22},
@@ -27,7 +26,6 @@ def generate_templates():
         json.dump(json_template, f, indent=4)
     print("  [OK] Created: example_input.json")
 
-    # 2. Excel Template (Multi-sheet)
     excel_filename = 'example_full_deck.xlsx'
     with pd.ExcelWriter(excel_filename) as writer:
         df_global = pd.DataFrame({
@@ -68,10 +66,14 @@ def load_excel_deck(filepath: str) -> SimulationConfig:
         print("  -> Parsing 'Global_Params' sheet...")
         df_global = pd.read_excel(filepath, sheet_name='Global_Params')
         for index, row in df_global.iterrows():
-            group, param, val = str(row['Group']).strip(), str(row['Parameter']).strip(), row['Value']
+            group = str(row['Group']).strip()
+            param = str(row['Parameter']).strip()
+            val = row['Value']
+
             if hasattr(cfg, group):
                 group_obj = getattr(cfg, group)
-                if hasattr(group_obj, param): setattr(group_obj, param, val)
+                if hasattr(group_obj, param):
+                    setattr(group_obj, param, val)
             elif hasattr(cfg, param):
                 setattr(cfg, param, val)
 
@@ -87,6 +89,7 @@ def load_excel_deck(filepath: str) -> SimulationConfig:
         try:
             df_rock = pd.read_excel(filepath, sheet_name='Rock_Arrays')
             df_rock.columns = df_rock.columns.str.strip()
+            
             if 'Permeability_mD' in df_rock.columns:
                 perm_array = df_rock['Permeability_mD'].values
                 if len(perm_array) == cfg.rock.nx:
@@ -98,6 +101,7 @@ def load_excel_deck(filepath: str) -> SimulationConfig:
             print("  -> [WARN] No 'Rock_Arrays' sheet found.")
 
         return cfg
+
     except Exception as e:
         raise RuntimeError(f"Failed to parse Excel file. Details: {e}")
 
@@ -105,7 +109,9 @@ def load_excel_deck(filepath: str) -> SimulationConfig:
 def get_manual_config() -> SimulationConfig:
     """Prompts the user for key simulation parameters interactively."""
     cfg = SimulationConfig()
-    print("\n" + "-" * 40 + "\n  MANUAL PARAMETER INPUT\n" + "-" * 40)
+    print("\n" + "-" * 40)
+    print("  MANUAL PARAMETER INPUT")
+    print("-" * 40)
     print("Instruction: Press 'Enter' without typing to use the default value.\n")
 
     try:
@@ -120,73 +126,69 @@ def get_manual_config() -> SimulationConfig:
 
         time_in = input(f"Total Simulation Time (days) [Default: {cfg.total_time}]: ").strip()
         if time_in: cfg.total_time = float(time_in)
+
     except ValueError:
         print("\n[!] WARNING: Invalid numeric input detected. Using defaults for remaining.")
 
     return cfg
 
 
-def main_menu() -> Tuple[str, Optional[SimulationConfig]]:
-    """
-    Displays the menu and routes the choice.
-    Returns a tuple: (action_string, config_object)
-    """
+def initialize_base_config() -> SimulationConfig:
+    """Handles the first stage of CLI routing to establish the base configuration."""
     print("=" * 60)
-    print("  WATERFLOOD SIMULATOR - MAIN MENU")
+    print("  STEP 1: INITIALIZE BASE CONFIGURATION")
     print("=" * 60)
-    print("  --- Custom Single Run ---")
-    print("  1. Run with default parameters (Base Case)")
-    print("  2. Load configuration from JSON")
-    print("  3. Load full deck from Excel (.xlsx)")
-    print("  4. Manual CLI Input (Basic Parameters)")
-    print("\n  --- Advanced Analysis ---")
-    print("  5. Run Standard Scenario Comparison (Case 3)")
-    print("  6. Run Standard Sensitivity Analysis (Case 4)")
-    print("\n  --- Utilities ---")
-    print("  7. Generate example templates (Excel & JSON)")
+    print("  1. Standard Default Base Case")
+    print("  2. Load from JSON")
+    print("  3. Load from Excel (.xlsx)")
+    print("  4. Manual CLI Input")
+    print("  5. Generate Template Files (Excel & JSON)")
     print("  0. Exit")
     print("=" * 60)
     
-    choice = input("Enter your choice (0-7): ").strip()
+    choice = input("Select base configuration method (0-5): ").strip()
 
     if choice == '1':
-        print("\n[INFO] Initializing with default parameters...")
-        return "single", SimulationConfig()
-        
+        return SimulationConfig()
     elif choice == '2':
-        filepath = input("Enter the JSON filename (e.g., input.json): ").strip()
-        try:
-            return "single", SimulationConfig.from_json(filepath)
-        except Exception as e:
-            print(f"\n[ERROR] Failed to load JSON: {e}")
-            sys.exit(1)
-            
+        filepath = input("Enter JSON filename: ").strip()
+        return SimulationConfig.from_json(filepath)
     elif choice == '3':
-        filepath = input("Enter the Excel filename (e.g., data.xlsx): ").strip()
-        try:
-            return "single", load_excel_deck(filepath)
-        except Exception as e:
-            print(f"\n[ERROR] Failed to load Excel: {e}")
-            sys.exit(1)
-
+        filepath = input("Enter Excel filename: ").strip()
+        return load_excel_deck(filepath)
     elif choice == '4':
-        return "single", get_manual_config()
-        
+        return get_manual_config()
     elif choice == '5':
-        return "scenario", None
-        
-    elif choice == '6':
-        return "sensitivity", None
-
-    elif choice == '7':
         generate_templates()
-        print("\n[INFO] Templates generated. Please edit them and run the program again.")
         sys.exit(0)
-        
     elif choice == '0':
-        print("Exiting simulator...")
         sys.exit(0)
-        
     else:
-        print("\n[ERROR] Invalid choice. Executing default Base Case...")
-        return "single", SimulationConfig()
+        return SimulationConfig()
+
+
+def select_execution_mode() -> str:
+    """Handles the second stage of CLI routing to define the simulation action."""
+    print("\n" + "=" * 60)
+    print("  STEP 2: SELECT EXECUTION MODE")
+    print("=" * 60)
+    print("  1. Run Single Simulation (Evaluate Base Case only)")
+    print("  2. Run Scenario Comparison")
+    print("  3. Run Parametric Sensitivity Analysis (Min/Base/Max)")
+    print("=" * 60)
+    
+    choice = input("Select execution mode (1-3): ").strip()
+    
+    if choice == '2':
+        return "scenario"
+    elif choice == '3':
+        return "sensitivity"
+    else:
+        return "single"
+
+
+def main_menu() -> Tuple[str, SimulationConfig]:
+    """Orchestrates the CLI flow."""
+    config = initialize_base_config()
+    action = select_execution_mode()
+    return action, config
