@@ -175,16 +175,15 @@ def select_execution_mode() -> str:
     print("  1. Run Single Simulation (Evaluate Base Case only)")
     print("  2. Run Scenario Comparison")
     print("  3. Run Parametric Sensitivity Analysis (Min/Base/Max)")
+    print("  4. AUTO-GENERATE ALL OUTPUTS (Runs 1, 2, and 3 sequentially)")
     print("=" * 60)
     
-    choice = input("Select execution mode (1-3): ").strip()
+    choice = input("Select execution mode (1-4): ").strip()
     
-    if choice == '2':
-        return "scenario"
-    elif choice == '3':
-        return "sensitivity"
-    else:
-        return "single"
+    if choice == '2': return "scenario"
+    elif choice == '3': return "sensitivity"
+    elif choice == '4': return "all"
+    else: return "single"
 
 
 def main_menu() -> Tuple[str, SimulationConfig]:
