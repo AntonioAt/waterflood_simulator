@@ -1,94 +1,111 @@
 """
 main.py
-=======
-Entry point that imports and orchestrates all branch modules.
-This is the trunk — all branches attach here.
+-------
+Entry point for the waterflood reservoir simulator.
+Demonstrates all capabilities: base case, complex physics,
+scenario comparison, and sensitivity analysis.
 """
 
 import warnings
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
-# ── Branch imports (each is an independent module) ──────────────────
 from config import SimulationConfig
-from permeability import (
-    uniform_perm, random_perm, channel_perm, layered_perm
-)
+from rock_properties import random_perm
 from simulator import WaterfloodSimulator
-from plotting import ResultsPlotter
-from reporting import print_report
-from sensitivity import sensitivity_analysis
-from scenarios import compare_scenarios
+from plotter import ResultsPlotter
+from report import print_report
+from scenarios import (
+    build_default_scenarios,
+    run_scenarios,
+    plot_scenario_comparison,
+)
+from sensitivity import run_sensitivity, plot_sensitivity
+
+
+def run_base_case():
+    """Case 1: Standard waterflood with uniform permeability."""
+    print("\n" + "=" * 70)
+    print("  CASE 1: Base-Case Waterflood")
+    print("=" * 70)
+
+    cfg = SimulationConfig()
+    sim = WaterfloodSimulator(cfg)
+    res = sim.run(verbose=True)
+
+    print_report(res)
+    plotter = ResultsPlotter(res)
+    plotter.plot_main(filename="case1_main.png")
+    plotter.plot_diagnostics(filename="case1_diagnostics.png")
+    return res
+
+
+def run_complex_physics():
+    """Case 2: Heterogeneous reservoir with capillary pressure and gravity."""
+    print("\n" + "=" * 70)
+    print("  CASE 2: Heterogeneous + Capillary + Gravity")
+    print("=" * 70)
+
+    cfg = SimulationConfig()
+    cfg.rock.perm_array = random_perm(100, 100.0, 60.0, seed=7)
+    cfg.capillary.enabled = True
+    cfg.capillary.Pc_entry = 3.0
+    cfg.gravity.enabled = True
+    cfg.gravity.dip_angle = 5.0
+    cfg.numerical.scheme = "minmod"
+
+    sim = WaterfloodSimulator(cfg)
+    res = sim.run(verbose=True)
+
+    print_report(res)
+    plotter = ResultsPlotter(res)
+    plotter.plot_main(filename="case2_main.png")
+    plotter.plot_diagnostics(filename="case2_diagnostics.png")
+    return res
+
+
+def run_scenario_comparison():
+    """Case 3: Compare multiple reservoir scenarios."""
+    print("\n" + "=" * 70)
+    print("  CASE 3: Scenario Comparison")
+    print("=" * 70)
+
+    scenarios = build_default_scenarios()
+    all_results = run_scenarios(scenarios)
+    plot_scenario_comparison(all_results, filename="case3_comparison.png")
+    return all_results
+
+
+def run_full_sensitivity():
+    """Case 4: Parametric sensitivity analysis."""
+    print("\n" + "=" * 70)
+    print("  CASE 4: Sensitivity Analysis")
+    print("=" * 70)
+
+    studies = run_sensitivity()
+    plot_sensitivity(studies, filename="case4_sensitivity.png")
+    return studies
 
 
 def main():
+    """Run all demonstration cases."""
     print("=" * 70)
     print("  EXPANDED 1-D WATERFLOOD RESERVOIR SIMULATOR")
+    print("  Modular Multi-Script Version")
     print("=" * 70)
 
-    # ──────────────────────────────────────────────────────────────────
-    # CASE 1: Base-Case Waterflood (rate-controlled, uniform perm)
-    # ──────────────────────────────────────────────────────────────────
-    print("\n\n>>> CASE 1: Base-Case Waterflood <<<\n")
-    cfg_base = SimulationConfig()
-    sim = WaterfloodSimulator(cfg_base)
-    res_base = sim.run(verbose=True)
-    print_report(res_base)
+    res_base = run_base_case()
+    res_complex = run_complex_physics()
+    scenario_results = run_scenario_comparison()
+    sensitivity_studies = run_full_sensitivity()
 
-    plotter = ResultsPlotter(res_base)
-    plotter.plot_main()
-    plotter.plot_diagnostics()
-
-    # ──────────────────────────────────────────────────────────────────
-    # CASE 2: Heterogeneous + Capillary + Gravity
-    # ──────────────────────────────────────────────────────────────────
-    print("\n\n>>> CASE 2: Heterogeneous + Capillary + Gravity <<<\n")
-    cfg2 = SimulationConfig()
-    cfg2.rock.perm_array = random_perm(100, 100.0, 60.0, seed=7)
-    cfg2.capillary.enabled = True
-    cfg2.capillary.Pc_entry = 3.0
-    cfg2.gravity.enabled = True
-    cfg2.gravity.dip_angle = 5.0
-    cfg2.numerical.scheme = "minmod"
-
-    sim2 = WaterfloodSimulator(cfg2)
-    res2 = sim2.run(verbose=True)
-    print_report(res2)
-    ResultsPlotter(res2).plot_main()
-
-    # ──────────────────────────────────────────────────────────────────
-    # CASE 3: Scenario Comparison
-    # ──────────────────────────────────────────────────────────────────
-    print("\n\n>>> CASE 3: Scenario Comparison <<<\n")
-    scenarios = {}
-
-    # Favorable mobility
-    cfg_fav = SimulationConfig()
-    cfg_fav.fluid.mu_o = 0.5
-    cfg_fav.fluid.mu_w = 0.5
-    scenarios["Favorable (M≈0.3)"] = cfg_fav
-
-    # Unfavorable mobility
-    cfg_unfav = SimulationConfig()
-    cfg_unfav.fluid.mu_o = 10.0
-    scenarios["Unfavorable (M≈6)"] = cfg_unfav
-
-    # High-perm channel
-    cfg_chan = SimulationConfig()
-    cfg_chan.rock.perm_array = channel_perm(100, 50, 800, 0.3, 0.7)
-    scenarios["Channel (50/800 mD)"] = cfg_chan
-
-    # Base case for reference
-    scenarios["Base Case"] = SimulationConfig()
-
-    compare_scenarios(scenarios)
-
-    # ──────────────────────────────────────────────────────────────────
-    # CASE 4: Full Sensitivity Analysis
-    # ──────────────────────────────────────────────────────────────────
-    print("\n\n>>> CASE 4: Sensitivity Analysis <<<\n")
-    sensitivity_analysis()
-
-    print("\n\nAll simulations and plots complete.")
+    print("\n" + "=" * 70)
+    print("  ALL CASES COMPLETE")
+    print("=" * 70)
+    print("\nGenerated plots:")
+    print("  - case1_main.png, case1_diagnostics.png")
+    print("  - case2_main.png, case2_diagnostics.png")
+    print("  - case3_comparison.png")
+    print("  - case4_sensitivity.png")
 
 
 if __name__ == "__main__":
