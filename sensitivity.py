@@ -2,7 +2,8 @@
 sensitivity.py
 --------------
 Automated parametric sensitivity analysis.
-Evaluates Min, Base, and Max scenarios pivoted on the user-defined base configuration.
+Evaluates Min, Base, and Max scenarios pivoted dynamically on the user's base configuration
+and the user's defined sensitivity bounds.
 """
 
 from typing import Dict
@@ -19,14 +20,19 @@ from rock_properties import uniform_perm, random_perm, channel_perm
 def run_sensitivity(base_config: SimulationConfig) -> Dict[str, Dict[str, SimulationResults]]:
     """
     Executes parametric sweeps evaluating Min, Base, and Max variations
-    relative to the provided base configuration.
+    relative to the provided base configuration and multiplier bounds.
     """
     studies = {}
+    b = base_config.bounds
 
     print("\n>>> Sweep: Viscosity Ratio (Min, Base, Max) <<<")
     results = {}
     base_mu_o = base_config.fluid.mu_o
-    test_values = {"Min": base_mu_o * 0.5, "Base": base_mu_o, "Max": base_mu_o * 2.0}
+    test_values = {
+        "Min": base_mu_o * b.mu_o_min_mult, 
+        "Base": base_mu_o, 
+        "Max": base_mu_o * b.mu_o_max_mult
+    }
 
     for label, mu_o in test_values.items():
         cfg = copy.deepcopy(base_config)
@@ -40,7 +46,11 @@ def run_sensitivity(base_config: SimulationConfig) -> Dict[str, Dict[str, Simula
     print(">>> Sweep: Injection Rate (Min, Base, Max) <<<")
     results = {}
     base_q = base_config.wells.q_inj
-    test_values = {"Min": base_q * 0.5, "Base": base_q, "Max": base_q * 1.5}
+    test_values = {
+        "Min": base_q * b.q_inj_min_mult, 
+        "Base": base_q, 
+        "Max": base_q * b.q_inj_max_mult
+    }
 
     for label, q in test_values.items():
         cfg = copy.deepcopy(base_config)
@@ -53,7 +63,11 @@ def run_sensitivity(base_config: SimulationConfig) -> Dict[str, Dict[str, Simula
     print(">>> Sweep: Corey Exponents (Min, Base, Max) <<<")
     results = {}
     base_n = base_config.relperm.nw
-    test_values = {"Min": max(1.0, base_n - 0.5), "Base": base_n, "Max": base_n + 1.0}
+    test_values = {
+        "Min": max(1.0, base_n + b.corey_min_offset), 
+        "Base": base_n, 
+        "Max": base_n + b.corey_max_offset
+    }
 
     for label, n in test_values.items():
         cfg = copy.deepcopy(base_config)
