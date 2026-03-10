@@ -2,7 +2,7 @@
 cli_interface.py
 ----------------
 Command-Line Interface for the Waterflood Simulator.
-Initializes the base configuration and routes the execution pipeline.
+Initializes the base configuration, handles external file parsing, and routes the execution pipeline.
 """
 
 import os
@@ -14,13 +14,14 @@ from config import SimulationConfig
 
 
 def generate_templates():
-    """Generates standard template files for user input."""
+    """Generates standard template files demonstrating how to override base parameters and sensitivity bounds."""
     print("\n--- Generating Template Files ---")
     
     json_template = {
         "total_time": 1500.0,
         "rock": {"permeability": 150.0, "porosity": 0.22},
-        "wells": {"q_inj": 600.0, "mode": "rate"}
+        "wells": {"q_inj": 600.0, "mode": "rate"},
+        "bounds": {"q_inj_min_mult": 0.25, "q_inj_max_mult": 2.0} 
     }
     with open("example_input.json", "w") as f:
         json.dump(json_template, f, indent=4)
@@ -29,9 +30,9 @@ def generate_templates():
     excel_filename = 'example_full_deck.xlsx'
     with pd.ExcelWriter(excel_filename) as writer:
         df_global = pd.DataFrame({
-            'Group': ['wells', 'wells', 'total_time', 'rock', 'rock'],
-            'Parameter': ['q_inj', 'mode', 'value', 'nx', 'permeability'],
-            'Value': [500.0, 'rate', 2000.0, 100, 100.0]
+            'Group': ['wells', 'wells', 'total_time', 'rock', 'rock', 'bounds', 'bounds'],
+            'Parameter': ['q_inj', 'mode', 'value', 'nx', 'permeability', 'q_inj_min_mult', 'q_inj_max_mult'],
+            'Value': [500.0, 'rate', 2000.0, 100, 100.0, 0.25, 2.0]
         })
         df_global.to_excel(writer, sheet_name='Global_Params', index=False)
         
