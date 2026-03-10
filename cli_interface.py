@@ -14,17 +14,11 @@ from config import SimulationConfig
 
 
 def generate_templates():
-    """Generates standard template files demonstrating how to override base parameters and bounds."""
     print("\n--- Generating Template Files ---")
-    
     json_template = {
         "total_time": 1500.0,
         "rock": {"permeability": 150.0, "porosity": 0.22},
-        "bounds": {
-            "q_inj_min_mult": 0.25, 
-            "unfav_mu_o": 15.0,
-            "channel_high_mult": 10.0
-        } 
+        "bounds": {"q_inj_min_mult": 0.25, "unfav_mu_o": 15.0} 
     }
     with open("example_input.json", "w") as f:
         json.dump(json_template, f, indent=4)
@@ -33,9 +27,9 @@ def generate_templates():
     excel_filename = 'example_full_deck.xlsx'
     with pd.ExcelWriter(excel_filename) as writer:
         df_global = pd.DataFrame({
-            'Group': ['wells', 'rock', 'bounds', 'bounds', 'bounds'],
-            'Parameter': ['q_inj', 'permeability', 'q_inj_min_mult', 'unfav_mu_o', 'channel_high_mult'],
-            'Value': [500.0, 100.0, 0.25, 12.0, 8.0]
+            'Group': ['wells', 'rock', 'bounds'],
+            'Parameter': ['q_inj', 'permeability', 'q_inj_min_mult'],
+            'Value': [500.0, 100.0, 0.25]
         })
         df_global.to_excel(writer, sheet_name='Global_Params', index=False)
         
@@ -59,7 +53,6 @@ def generate_templates():
 
 
 def load_excel_deck(filepath: str) -> SimulationConfig:
-    """Parses a multi-sheet Excel file into a SimulationConfig object."""
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"Critical Error: Cannot find the file '{filepath}'.")
 
@@ -105,13 +98,12 @@ def load_excel_deck(filepath: str) -> SimulationConfig:
             print("  -> [WARN] No 'Rock_Arrays' sheet found.")
 
         return cfg
-
     except Exception as e:
         raise RuntimeError(f"Failed to parse Excel file. Details: {e}")
 
 
 def get_manual_config() -> SimulationConfig:
-    """Prompts the user for key simulation parameters and boundaries interactively."""
+    """Prompts the user for extensive simulation parameters interactively."""
     cfg = SimulationConfig()
     print("\n" + "-" * 60)
     print("  MANUAL PARAMETER INPUT")
@@ -119,32 +111,51 @@ def get_manual_config() -> SimulationConfig:
     print("Instruction: Press 'Enter' without typing to use the default value.\n")
 
     try:
-        # --- 1. Base Parameters ---
-        print("--- BASE CASE PARAMETERS ---")
+        # --- 1. Reservoir Geometry & Rock ---
+        print("--- RESERVOIR GEOMETRY & ROCK PROPERTIES ---")
+        area_in = input(f"Cross-sectional Area (ft^2) [Default: {cfg.rock.area}]: ").strip()
+        if area_in: cfg.rock.area = float(area_in)
+        
+        len_in = input(f"Reservoir Length (ft) [Default: {cfg.rock.length}]: ").strip()
+        if len_in: cfg.rock.length = float(len_in)
+
         perm_in = input(f"Rock Permeability (mD) [Default: {cfg.rock.permeability}]: ").strip()
         if perm_in: cfg.rock.permeability = float(perm_in)
+
+        poro_in = input(f"Rock Porosity (fraction) [Default: {cfg.rock.porosity}]: ").strip()
+        if poro_in: cfg.rock.porosity = float(poro_in)
+
+        # --- 2. Relative Permeability Endpoints ---
+        print("\n--- RELATIVE PERMEABILITY ---")
+        swc_in = input(f"Connate Water Saturation (Swc) [Default: {cfg.relperm.Swc}]: ").strip()
+        if swc_in: cfg.relperm.Swc = float(swc_in)
+
+        sor_in = input(f"Residual Oil Saturation (Sor) [Default: {cfg.relperm.Sor}]: ").strip()
+        if sor_in: cfg.relperm.Sor = float(sor_in)
+
+        # --- 3. Well Controls ---
+        print("\n--- WELL CONTROLS ---")
+        q_inj_in = input(f"Water Injection Rate (bbl/day) [Default: {cfg.wells.q_inj}]: ").strip()
+        if q_inj_in: cfg.wells.q_inj = float(q_inj_in)
 
         time_in = input(f"Total Simulation Time (days) [Default: {cfg.total_time}]: ").strip()
         if time_in: cfg.total_time = float(time_in)
 
-        # --- 2. Sensitivity Bounds ---
-        print("\n--- SENSITIVITY BOUNDS (MIN/MAX) ---")
+        # --- 4. Sensitivity Bounds ---
+        print("\n--- SENSITIVITY BOUNDS (MIN/MAX MULTIPLIERS) ---")
         q_min = input(f"Min Injection Rate Multiplier [Default: {cfg.bounds.q_inj_min_mult}]: ").strip()
         if q_min: cfg.bounds.q_inj_min_mult = float(q_min)
         
         q_max = input(f"Max Injection Rate Multiplier [Default: {cfg.bounds.q_inj_max_mult}]: ").strip()
         if q_max: cfg.bounds.q_inj_max_mult = float(q_max)
 
-        # --- 3. Scenario Comparison Bounds ---
+        # --- 5. Scenario Comparison Overrides ---
         print("\n--- SCENARIO COMPARISON INPUTS ---")
         fav_o = input(f"Favorable Scenario Oil Viscosity (cp) [Default: {cfg.bounds.fav_mu_o}]: ").strip()
         if fav_o: cfg.bounds.fav_mu_o = float(fav_o)
         
         unfav_o = input(f"Unfavorable Scenario Oil Viscosity (cp) [Default: {cfg.bounds.unfav_mu_o}]: ").strip()
         if unfav_o: cfg.bounds.unfav_mu_o = float(unfav_o)
-
-        ch_high = input(f"Channel Scenario High-Perm Multiplier [Default: {cfg.bounds.channel_high_mult}]: ").strip()
-        if ch_high: cfg.bounds.channel_high_mult = float(ch_high)
 
     except ValueError:
         print("\n[!] WARNING: Invalid numeric input detected. Using defaults for the remaining parameters.")
@@ -153,7 +164,6 @@ def get_manual_config() -> SimulationConfig:
 
 
 def initialize_base_config() -> SimulationConfig:
-    """Handles the first stage of CLI routing to establish the base configuration."""
     print("=" * 60)
     print("  STEP 1: INITIALIZE BASE CONFIGURATION")
     print("=" * 60)
@@ -167,27 +177,18 @@ def initialize_base_config() -> SimulationConfig:
     
     choice = input("Select base configuration method (0-5): ").strip()
 
-    if choice == '1':
-        return SimulationConfig()
-    elif choice == '2':
-        filepath = input("Enter JSON filename: ").strip()
-        return SimulationConfig.from_json(filepath)
-    elif choice == '3':
-        filepath = input("Enter Excel filename: ").strip()
-        return load_excel_deck(filepath)
-    elif choice == '4':
-        return get_manual_config()
+    if choice == '1': return SimulationConfig()
+    elif choice == '2': return SimulationConfig.from_json(input("Enter JSON filename: ").strip())
+    elif choice == '3': return load_excel_deck(input("Enter Excel filename: ").strip())
+    elif choice == '4': return get_manual_config()
     elif choice == '5':
         generate_templates()
         sys.exit(0)
-    elif choice == '0':
-        sys.exit(0)
-    else:
-        return SimulationConfig()
+    elif choice == '0': sys.exit(0)
+    else: return SimulationConfig()
 
 
 def select_execution_mode() -> str:
-    """Handles the second stage of CLI routing to define the simulation action."""
     print("\n" + "=" * 60)
     print("  STEP 2: SELECT EXECUTION MODE")
     print("=" * 60)
@@ -206,7 +207,6 @@ def select_execution_mode() -> str:
 
 
 def main_menu() -> Tuple[str, SimulationConfig]:
-    """Orchestrates the CLI flow."""
     config = initialize_base_config()
     action = select_execution_mode()
     return action, config
