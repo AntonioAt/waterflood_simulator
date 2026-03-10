@@ -26,26 +26,25 @@ def main():
         action, config = main_menu()
 
         # ---------------------------------------------------------
-        # ROUTE A: Single Custom Simulation
+        # ROUTE A: Single Custom Simulation (Base Case)
         # ---------------------------------------------------------
         if action in ["single", "all"]:
             print("\n" + "=" * 60)
-            print("  STARTING CUSTOM WATERFLOOD SIMULATION")
+            print("  STARTING CUSTOM WATERFLOOD SIMULATION (BASE CASE)")
             print("=" * 60)
             
-            # Using deepcopy to ensure the base config remains untouched for subsequent steps
             sim = WaterfloodSimulator(copy.deepcopy(config))
             res = sim.run(verbose=True)
             print_report(res)
             
-            print("\n[INFO] Generating single simulation plots...")
+            print("\n[INFO] Generating Base Case plots...")
             plotter = ResultsPlotter(res)
             plotter.plot_main(save=True, filename="results_main.png")
             plotter.plot_diagnostics(save=True, filename="results_diagnostics.png")
-            print("[SUCCESS] Plots saved as 'results_main.png' and 'results_diagnostics.png'.")
+            print("[SUCCESS] Base plots saved.")
 
         # ---------------------------------------------------------
-        # ROUTE B: Scenario Comparison
+        # ROUTE B: Scenario Comparison (Includes Min/Max Diagnostics)
         # ---------------------------------------------------------
         if action in ["scenario", "all"]:
             print("\n" + "=" * 60)
@@ -55,7 +54,19 @@ def main():
             scenarios = build_default_scenarios(base_config=config)
             all_results = run_scenarios(scenarios)
             plot_scenario_comparison(all_results, save=True, filename="results_comparison.png")
-            print("\n[SUCCESS] Scenario comparison complete. Plot saved as 'results_comparison.png'.")
+            print("\n[SUCCESS] Scenario comparison overlay plot saved.")
+
+            print("\n[INFO] Generating individual diagnostic plots for Min and Max scenarios...")
+            for name, res in all_results.items():
+                if "Favorable" in name:  # The MAX Scenario
+                    plotter = ResultsPlotter(res)
+                    plotter.plot_main(save=True, filename="results_max_main.png")
+                    plotter.plot_diagnostics(save=True, filename="results_max_diagnostics.png")
+                elif "Unfavorable" in name:  # The MIN Scenario
+                    plotter = ResultsPlotter(res)
+                    plotter.plot_main(save=True, filename="results_min_main.png")
+                    plotter.plot_diagnostics(save=True, filename="results_min_diagnostics.png")
+            print("[SUCCESS] Min and Max individual diagnostic plots saved.")
 
         # ---------------------------------------------------------
         # ROUTE C: Sensitivity Analysis
