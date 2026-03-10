@@ -2,110 +2,61 @@
 main.py
 -------
 Entry point for the waterflood reservoir simulator.
-Demonstrates all capabilities: base case, complex physics,
-scenario comparison, and sensitivity analysis.
+Integrates the interactive CLI menu for dynamic parameter input and 
+orchestrates the simulation pipeline.
 """
 
+import sys
 import warnings
+
+# Suppress runtime warnings from division by zero in numpy arrays (handled internally)
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
-from config import SimulationConfig
-from rock_properties import random_perm
+from cli_interface import main_menu
 from simulator import WaterfloodSimulator
 from plotter import ResultsPlotter
 from report import print_report
-from scenarios import (
-    build_default_scenarios,
-    run_scenarios,
-    plot_scenario_comparison,
-)
-from sensitivity import run_sensitivity, plot_sensitivity
-
-
-def run_base_case():
-    """Case 1: Standard waterflood with uniform permeability."""
-    print("\n" + "=" * 70)
-    print("  CASE 1: Base-Case Waterflood")
-    print("=" * 70)
-
-    cfg = SimulationConfig()
-    sim = WaterfloodSimulator(cfg)
-    res = sim.run(verbose=True)
-
-    print_report(res)
-    plotter = ResultsPlotter(res)
-    plotter.plot_main(filename="case1_main.png")
-    plotter.plot_diagnostics(filename="case1_diagnostics.png")
-    return res
-
-
-def run_complex_physics():
-    """Case 2: Heterogeneous reservoir with capillary pressure and gravity."""
-    print("\n" + "=" * 70)
-    print("  CASE 2: Heterogeneous + Capillary + Gravity")
-    print("=" * 70)
-
-    cfg = SimulationConfig()
-    cfg.rock.perm_array = random_perm(100, 100.0, 60.0, seed=7)
-    cfg.capillary.enabled = True
-    cfg.capillary.Pc_entry = 3.0
-    cfg.gravity.enabled = True
-    cfg.gravity.dip_angle = 5.0
-    cfg.numerical.scheme = "minmod"
-
-    sim = WaterfloodSimulator(cfg)
-    res = sim.run(verbose=True)
-
-    print_report(res)
-    plotter = ResultsPlotter(res)
-    plotter.plot_main(filename="case2_main.png")
-    plotter.plot_diagnostics(filename="case2_diagnostics.png")
-    return res
-
-
-def run_scenario_comparison():
-    """Case 3: Compare multiple reservoir scenarios."""
-    print("\n" + "=" * 70)
-    print("  CASE 3: Scenario Comparison")
-    print("=" * 70)
-
-    scenarios = build_default_scenarios()
-    all_results = run_scenarios(scenarios)
-    plot_scenario_comparison(all_results, filename="case3_comparison.png")
-    return all_results
-
-
-def run_full_sensitivity():
-    """Case 4: Parametric sensitivity analysis."""
-    print("\n" + "=" * 70)
-    print("  CASE 4: Sensitivity Analysis")
-    print("=" * 70)
-
-    studies = run_sensitivity()
-    plot_sensitivity(studies, filename="case4_sensitivity.png")
-    return studies
-
 
 def main():
-    """Run all demonstration cases."""
-    print("=" * 70)
-    print("  EXPANDED 1-D WATERFLOOD RESERVOIR SIMULATOR")
-    print("  Modular Multi-Script Version")
-    print("=" * 70)
+    """Main execution pipeline."""
+    try:
+        # 1. Launch the interactive menu to construct the configuration
+        # This will block and wait for user input (CLI, JSON, or Excel)
+        config = main_menu()
 
-    res_base = run_base_case()
-    res_complex = run_complex_physics()
-    scenario_results = run_scenario_comparison()
-    sensitivity_studies = run_full_sensitivity()
+        print("\n" + "=" * 60)
+        print("  STARTING WATERFLOOD SIMULATION")
+        print("=" * 60)
 
-    print("\n" + "=" * 70)
-    print("  ALL CASES COMPLETE")
-    print("=" * 70)
-    print("\nGenerated plots:")
-    print("  - case1_main.png, case1_diagnostics.png")
-    print("  - case2_main.png, case2_diagnostics.png")
-    print("  - case3_comparison.png")
-    print("  - case4_sensitivity.png")
+        # 2. Instantiate the simulator engine with the user's config
+        sim = WaterfloodSimulator(config)
+        
+        # 3. Execute the time-stepping loop
+        res = sim.run(verbose=True)
+
+        # 4. Output the detailed text report
+        print_report(res)
+
+        # 5. Generate, save, and display visualizations
+        print("\n[INFO] Generating plots...")
+        plotter = ResultsPlotter(res)
+        
+        # Plot the main 4-panel figure
+        plotter.plot_main(save=True, filename="results_main.png")
+        
+        # Plot the extended diagnostics
+        plotter.plot_diagnostics(save=True, filename="results_diagnostics.png")
+
+        print("\n[SUCCESS] Simulation complete. Plots saved locally.")
+
+    except KeyboardInterrupt:
+        # Graceful exit if the user presses Ctrl+C
+        print("\n\n[WARN] Simulation interrupted by user. Exiting safely...")
+        sys.exit(1)
+    except Exception as e:
+        # Catch-all for unexpected runtime failures to prevent messy tracebacks
+        print(f"\n[FATAL ERROR] An unexpected error occurred during execution: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
