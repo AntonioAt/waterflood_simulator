@@ -111,7 +111,6 @@ def get_manual_config() -> SimulationConfig:
     print("Instruction: Press 'Enter' without typing to use the default value.\n")
 
     try:
-        # --- 1. Reservoir Geometry & Rock ---
         print("--- RESERVOIR GEOMETRY & ROCK PROPERTIES ---")
         nx_in = input(f"Number of Grid Blocks (nx) [Default: {cfg.rock.nx}]: ").strip()
         if nx_in: cfg.rock.nx = int(nx_in)
@@ -128,15 +127,30 @@ def get_manual_config() -> SimulationConfig:
         poro_in = input(f"Rock Porosity (fraction) [Default: {cfg.rock.porosity}]: ").strip()
         if poro_in: cfg.rock.porosity = float(poro_in)
 
-        # --- 2. Relative Permeability Endpoints ---
-        print("\n--- RELATIVE PERMEABILITY ---")
+        print("\n--- RELATIVE PERMEABILITY & FLUIDS ---")
         swc_in = input(f"Connate Water Saturation (Swc) [Default: {cfg.relperm.Swc}]: ").strip()
-        if swc_in: cfg.relperm.Swc = float(swc_in)
+        if swc_in: 
+            cfg.relperm.Swc = float(swc_in)
+            cfg.Sw_init = float(swc_in) 
 
         sor_in = input(f"Residual Oil Saturation (Sor) [Default: {cfg.relperm.Sor}]: ").strip()
         if sor_in: cfg.relperm.Sor = float(sor_in)
 
-        # --- 3. Well Controls ---
+        krw_max_in = input(f"Max Water Rel-Perm (krw_max) [Default: {cfg.relperm.krw_max}]: ").strip()
+        if krw_max_in: cfg.relperm.krw_max = float(krw_max_in)
+
+        kro_max_in = input(f"Max Oil Rel-Perm (kro_max) [Default: {cfg.relperm.kro_max}]: ").strip()
+        if kro_max_in: cfg.relperm.kro_max = float(kro_max_in)
+
+        nw_in = input(f"Corey Water Exponent (nw) [Default: {cfg.relperm.nw}]: ").strip()
+        if nw_in: cfg.relperm.nw = float(nw_in)
+
+        no_in = input(f"Corey Oil Exponent (no) [Default: {cfg.relperm.no}]: ").strip()
+        if no_in: cfg.relperm.no = float(no_in)
+
+        mu_w_in = input(f"Water Viscosity (cp) [Default: {cfg.fluid.mu_w}]: ").strip()
+        if mu_w_in: cfg.fluid.mu_w = float(mu_w_in)
+
         print("\n--- WELL CONTROLS ---")
         q_inj_in = input(f"Water Injection Rate (bbl/day) [Default: {cfg.wells.q_inj}]: ").strip()
         if q_inj_in: cfg.wells.q_inj = float(q_inj_in)
@@ -144,7 +158,6 @@ def get_manual_config() -> SimulationConfig:
         time_in = input(f"Total Simulation Time (days) [Default: {cfg.total_time}]: ").strip()
         if time_in: cfg.total_time = float(time_in)
 
-        # --- 4. Sensitivity Bounds ---
         print("\n--- SENSITIVITY BOUNDS (MIN/MAX MULTIPLIERS) ---")
         q_min = input(f"Min Injection Rate Multiplier [Default: {cfg.bounds.q_inj_min_mult}]: ").strip()
         if q_min: cfg.bounds.q_inj_min_mult = float(q_min)
@@ -152,7 +165,6 @@ def get_manual_config() -> SimulationConfig:
         q_max = input(f"Max Injection Rate Multiplier [Default: {cfg.bounds.q_inj_max_mult}]: ").strip()
         if q_max: cfg.bounds.q_inj_max_mult = float(q_max)
 
-        # --- 5. Scenario Comparison Overrides ---
         print("\n--- SCENARIO COMPARISON INPUTS ---")
         fav_o = input(f"Favorable Scenario Oil Viscosity (cp) [Default: {cfg.bounds.fav_mu_o}]: ").strip()
         if fav_o: cfg.bounds.fav_mu_o = float(fav_o)
